@@ -58,14 +58,19 @@
         CallADO({
           type: "POST",
           url: (ADO_RES.Teams).replace("@p", MyProject.Guid), 
-          name: sTeamName, 
-          description: sTeamDescription,
-          projectId: MyProject.Guid
+          data: JSON.stringify({
+            name: sTeamName,
+            description: sTeamDescription
+          })
         }).done(function(data){
           SetSuccess(data);
           SetStatus(`New team created: ${data.id}`);
         })
         BackToActionSel();
+    }
+
+    function GetTeams(){
+
     }
 
     function CallADO(oOptions){
@@ -136,13 +141,13 @@
 
     function DisplayVariables(){
       $("#consoleVariable").html("<p><strong>MyProject</strong></p>");
-      $("#consoleVariable").append(`<p class="font-monospace">${JSON.stringify(MyProject, null, 3)}</p>` )
+      $("#consoleVariable").append(`<pre class="font-monospace">${JSON.stringify(MyProject, null, 3)}</pre>` )
     }
     function DisplayRequest(req){
-      $("#consoleRequest").html(`<p class="font-monospace">${JSON.stringify(req, null, 3)}</p>`);
+      $("#consoleRequest").html(`<pre class="font-monospace">${JSON.stringify(req, null, 3)}</pre>`);
     }
     function DisplayResponse(res){
-      $("#consoleResponse").html(`<p class="font-monospace">${JSON.stringify(res, null, 3)}</p>`);
+      $("#consoleResponse").html(`<pre class="font-monospace">${JSON.stringify(res, null, 3)}</pre>`);
     }
 
     </script>
@@ -167,16 +172,16 @@
             </div>
         </form>
 
-<div id="ActionSelectorSection" style="display:none;">
-  <div class="btn-group">
-    <button class="btn btn-secondary btn-lg dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-      Select an action here...
-    </button>
-    <ul class="dropdown-menu">
-      <li><a class="dropdown-item" href="#" onclick="Select_Action_NewTeam()">Create a New Team</a></li>
-    </ul>
-  </div>
-</div>
+      <div id="ActionSelectorSection" class="mb-3" style="display:none;">
+        <div class="btn-group">
+          <button class="btn btn-secondary btn-lg dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Select an action here...
+          </button>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="#" onclick="Select_Action_NewTeam()">Create a New Team</a></li>
+          </ul>
+        </div>
+      </div>
 
         <form id="NewTeamForm" style="display:none;" class="row g-3">
             <h3>Create a New Team</h3>
