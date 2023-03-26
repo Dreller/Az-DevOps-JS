@@ -1,7 +1,8 @@
 from flask import Flask, render_template
+import os
 
 app = Flask(__name__)
 
 @app.route("/")
 def hello_world():
-    return render_template("index.html", title="ADO JS Interaction", org="dreller08xp1", pat="rkriqbbxnebqzrdhmydcn762ueue6qdlvht7qixxvn4gbrdqwhsq")
+    return render_template("index.html", title="JS AzDO", org=os.environ.get("ADO_ORG"), pat=os.environ.get("ADO_PAT"))
