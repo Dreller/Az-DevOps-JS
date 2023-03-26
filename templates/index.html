@@ -1,19 +1,246 @@
 <head>
     <title>{{ title }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
+    <script   src="https://code.jquery.com/jquery-3.6.4.min.js"   integrity="sha256-oP6HI9z1XaZNBrJURtCoUT5SUnxFr8s3BzRl+cbzUq8="   crossorigin="anonymous"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-aFq/bzH65dt+w6FI2ooMVUpc+21e0SRygnTpmBvdBgSdnuTN7QbdgL+OapgHtvPp" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha2/dist/js/bootstrap.bundle.min.js" integrity="sha384-qKXV1j0HvMUeCBQ+QVp7JcfGl760yU08IQ+GpUo5hlbpg51QRiuqHAJz8+BrxE/N" crossorigin="anonymous"></script>
+    <script>
+        const ADO_DOM = "https://dev.azure.com/";
+        const ADO_ORG = "dreller08xp1";
+        const ADO_PAT = "rkriqbbxnebqzrdhmydcn762ueue6qdlvht7qixxvn4gbrdqwhsq";
+        const ADO_AUT = "Basic " + btoa("" + ":" + ADO_PAT);
 
-<body>
-    <div class="App">
-        <header class="App-header">
-            <img src="{{ url_for('static', filename='Octocat.png') }}" class="App-logo" alt="logo" />
-            <p>
-                GitHub Codespaces <span class="heart">♥️</span> Flask
-            </p>
-            <p class="small">
-                Edit <code>templates/index.html</code> and refresh to see your changes!
-            </p>
-        </header>
-    </div>
+        const ADO_RES = {
+            Projects: `${ADO_DOM}${ADO_ORG}/_apis/projects?api-version=7.1-preview.4`,
+            Project: `${ADO_DOM}${ADO_ORG}/_apis/projects/@p?api-version=7.1-preview.4`,
+            Teams: `${ADO_DOM}${ADO_ORG}/_apis/projects/@p/teams?api-version=7.1-preview.3`
+        };
+
+        var UI_ShowProjectSel = true;
+        var UI_ShowActionSel = false;
+        var UI_ShowCreateTeam = false;
+
+        var MyProject = {
+
+        };
+
+    $(document).ready(function(){
+        GetProjects();
+        DrawScreen();
+    });
+    
+    function GetProjects(){
+        SetStatus("Getting Projects...");
+        CallADO({url: ADO_RES.Projects})
+        .done(function(data){
+            $.each(data.value, function(index){
+                var thisProject = data.value[index];
+                $("#lstProject").append(`<option value="${thisProject.id}">${thisProject.name}</option>`);
+            });
+            SetSuccess(data);
+        })
+    };
+
+    function GetProject(sProjectGuid){
+        SetStatus("Getting Project Information... " + sProjectGuid);
+        CallADO({url: (ADO_RES.Project).replace("@p", sProjectGuid)})
+        .done(function(data){
+            MyProject = {Guid: data.id, Name: data.name};
+            $("#projectDisplay").html(`Project: ${MyProject.Name} (${MyProject.Guid})`);
+            UI_ShowProjectSel = false;
+            UI_ShowActionSel = true;
+            DrawScreen();
+            BackToActionSel();
+        });
+    }
+
+    function CreateNewTeam(sTeamName, sTeamDescription){
+        SetStatus(`Creating New Team...<br>Name: ${sTeamName}<br>Description: ${sTeamDescription}`);
+        CallADO({
+          type: "POST",
+          url: (ADO_RES.Teams).replace("@p", MyProject.Guid), 
+          name: sTeamName, 
+          description: sTeamDescription,
+          projectId: MyProject.Guid
+        }).done(function(data){
+          SetSuccess(data);
+          SetStatus(`New team created: ${data.id}`);
+        })
+        BackToActionSel();
+    }
+
+    function CallADO(oOptions){
+        let oSchemas = {
+            async: false,
+            type: "GET",
+            url: "",
+            data: "",
+            contentType: "application/json",
+            accept: "application/json",
+            dataType: "json",
+            beforeSend: function(xhr) {
+                xhr.setRequestHeader("Authorization", ADO_AUT);
+            },
+            success: SetSuccess,
+            error: SetError
+        };
+        let oParams = {
+            ...oSchemas,
+            ...oOptions
+        };
+        DisplayRequest(oParams);
+        return $.ajax(oParams);
+    }
+
+    function BackToActionSel(){
+      UI_ShowActionSel = true;
+
+      UI_ShowCreateTeam = false;
+
+      DrawScreen();
+    }
+
+    function SetStatus(oText){
+        $("#status").html(`${oText}`);
+        DisplayVariables();
+    }
+    function SetSuccess(data){
+      SetStatus("Done");
+      DisplayResponse(data);
+      $("#status").removeClass().addClass("alert alert-success");
+    }
+    function SetError(err){
+      SetStatus("Error in API Call: " + err.responseJSON.message);
+      DisplayResponse(err);
+      $("#status").removeClass().addClass("alert alert-danger");
+    }
+
+    function Action_SelectProject(){
+      GetProject($("#lstProject").val());
+    }
+    function Action_CreateTeam(){
+      CreateNewTeam($("#txtNewTeamName").val().trim(), $("#txtNewTeamDesc").val().trim());
+    }
+
+    function Select_Action_NewTeam(){
+      UI_ShowActionSel = false;
+      UI_ShowCreateTeam = true;
+      DrawScreen();
+    }
+
+    function DrawScreen(){
+        $("#ProjectSelector").css("display", (UI_ShowProjectSel==true) ? "block" : "none");
+        $("#ProjectSelectorFilled").css("display", (UI_ShowProjectSel!=true) ? "block" : "none");
+        $("#ActionSelectorSection").css("display", (UI_ShowActionSel==true) ? "block" : "none");
+        $("#NewTeamForm").css("display", (UI_ShowCreateTeam==true) ? "block" : "none");
+    }
+
+    function DisplayVariables(){
+      $("#consoleVariable").html("<p><strong>MyProject</strong></p>");
+      $("#consoleVariable").append(`<p class="font-monospace">${JSON.stringify(MyProject, null, 3)}</p>` )
+    }
+    function DisplayRequest(req){
+      $("#consoleRequest").html(`<p class="font-monospace">${JSON.stringify(req, null, 3)}</p>`);
+    }
+    function DisplayResponse(res){
+      $("#consoleResponse").html(`<p class="font-monospace">${JSON.stringify(res, null, 3)}</p>`);
+    }
+
+    </script>
+
+    <body>
+    <div class="container">
+        <h1>Azure DevOps JS Interaction</h1>
+
+        <form id="ProjectSelector" style="display:none;">
+            <div class="mb-3">
+              <label for="lstProject" class="form-label">Project</label>
+              <select class="form-control" id="lstProject" aria-describedby="projectHelp">
+                <option value="">Select here...</option>
+              </select>
+              <div id="projectHelp" class="form-text">Select the Project to send Requests to.</div>
+            </div>
+            <button type="button" class="btn btn-primary" onclick="Action_SelectProject()">Select this Project</button>
+        </form>
+        <form id="ProjectSelectorFilled" style="display:none;">
+            <div class="mb-3">
+              <label id="projectDisplay" class="form-label">(Placeholder)</label>
+            </div>
+        </form>
+
+<div id="ActionSelectorSection" style="display:none;">
+  <div class="btn-group">
+    <button class="btn btn-secondary btn-lg dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+      Select an action here...
+    </button>
+    <ul class="dropdown-menu">
+      <li><a class="dropdown-item" href="#" onclick="Select_Action_NewTeam()">Create a New Team</a></li>
+    </ul>
+  </div>
+</div>
+
+        <form id="NewTeamForm" style="display:none;" class="row g-3">
+            <h3>Create a New Team</h3>
+                <div class="col-md-4">
+                    <label for="txtNewTeamName" class="form-label">Team Name</label>
+                    <input type="text" class="form-control" id="txtNewTeamName">
+                </div>
+                <div class="col-md-8">
+                    <label for="txtNewTeamDesc" class="form-label">Description</label>
+                    <input type="text" class="form-control" id="txtNewTeamDesc">
+                </div>
+       
+            <div class="col-12">
+                <button type="button" class="btn btn-primary" onclick="Action_CreateTeam()">Create</button>
+            </div>
+            
+        </form>
+        
+
+        
+
+    <div id="status" class="alert alert-light">Status</div>
+
+
+    <div class="accordion" id="consoleContainer">
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+              Variables
+            </button>
+          </h2>
+          <div id="collapseOne" class="accordion-collapse collapse" data-bs-parent="#consoleContainer">
+            <div class="accordion-body" id="consoleVariable">
+              
+            </div>
+          </div>
+        </div>
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+              Request
+            </button>
+          </h2>
+          <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#consoleContainer">
+            <div class="accordion-body" id="consoleRequest">
+              
+            </div>
+          </div>
+        </div>
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+              Response
+            </button>
+          </h2>
+          <div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#consoleContainer">
+            <div class="accordion-body" id="consoleResponse">
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+  </div>
 </body>
 
 </html>
