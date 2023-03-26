@@ -3,28 +3,33 @@
     <script   src="https://code.jquery.com/jquery-3.6.4.min.js"   integrity="sha256-oP6HI9z1XaZNBrJURtCoUT5SUnxFr8s3BzRl+cbzUq8="   crossorigin="anonymous"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-aFq/bzH65dt+w6FI2ooMVUpc+21e0SRygnTpmBvdBgSdnuTN7QbdgL+OapgHtvPp" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha2/dist/js/bootstrap.bundle.min.js" integrity="sha384-qKXV1j0HvMUeCBQ+QVp7JcfGl760yU08IQ+GpUo5hlbpg51QRiuqHAJz8+BrxE/N" crossorigin="anonymous"></script>
+    <!-- https://adalenv.github.io/htmlson.js/ -->
+    <script src="https://cdn.jsdelivr.net/npm/htmlson.js@1.0.4/src/htmlson.js"></script>
     <script>
         const ADO_DOM = "https://dev.azure.com/";
-        const ADO_ORG = "dreller08xp1";
-        const ADO_PAT = "rkriqbbxnebqzrdhmydcn762ueue6qdlvht7qixxvn4gbrdqwhsq";
+        const ADO_ORG = "{{ org }}";
+        const ADO_PAT = "{{ pat }}";
         const ADO_AUT = "Basic " + btoa("" + ":" + ADO_PAT);
 
         const ADO_RES = {
             Projects: `${ADO_DOM}${ADO_ORG}/_apis/projects?api-version=7.1-preview.4`,
             Project: `${ADO_DOM}${ADO_ORG}/_apis/projects/@p?api-version=7.1-preview.4`,
-            Teams: `${ADO_DOM}${ADO_ORG}/_apis/projects/@p/teams?api-version=7.1-preview.3`
+            Teams: `${ADO_DOM}${ADO_ORG}/_apis/projects/@p/teams?api-version=7.1-preview.3`,
+            Users: `https://vssps.dev.azure.com/${ADO_ORG}/_apis/graph/users?api-version=7.1-preview.1`,
         };
 
         var UI_ShowProjectSel = true;
         var UI_ShowActionSel = false;
         var UI_ShowCreateTeam = false;
+        var UI_ShowTable = false;
 
-        var MyProject = {
-
-        };
+        var MyProject = {};
+        var MyUsers = [];
+        var MyTeams = [];
 
     $(document).ready(function(){
         GetProjects();
+        GetUsers();
         DrawScreen();
     });
     
@@ -53,6 +58,37 @@
         });
     }
 
+    function GetUsers(){
+      SetStatus("Getting Users...");
+        CallADO({url: ADO_RES.Users})
+        .done(function(data){
+            $.each(data.value, function(index){
+                var thisUser = data.value[index];
+                if( thisUser.origin=="aad"){
+                  MyUsers.push({Id: thisUser.principalName, Name: thisUser.displayName, Origin: thisUser.origin, thisUser});
+                }
+            });
+            SetSuccess(data);
+        })
+    }
+
+    function GetTeams(sProjectGuid){
+      console.log("Getting Teams...");
+      SetStatus("Getting Teams for Project... ");
+        CallADO({url: (ADO_RES.Teams).replace("@p", sProjectGuid)})
+        .done(function(data){
+            console.log(data);
+            $.each(data.value, function(index){
+                var thisTeam = data.value[index];
+                console.log(thisTeam);
+                MyTeams.push({Guid: thisTeam.id, Name: thisTeam.name});
+            });
+            DrawScreen();
+            BackToActionSel();
+            DisplayTable("Teams in this Project",MyTeams);
+        });
+    }
+
     function CreateNewTeam(sTeamName, sTeamDescription){
         SetStatus(`Creating New Team...<br>Name: ${sTeamName}<br>Description: ${sTeamDescription}`);
         CallADO({
@@ -69,9 +105,7 @@
         BackToActionSel();
     }
 
-    function GetTeams(){
 
-    }
 
     function CallADO(oOptions){
         let oSchemas = {
@@ -93,6 +127,7 @@
             ...oOptions
         };
         DisplayRequest(oParams);
+        console.log(oParams);
         return $.ajax(oParams);
     }
 
@@ -102,6 +137,12 @@
       UI_ShowCreateTeam = false;
 
       DrawScreen();
+    }
+
+    function DisplayTable(sTitle, oObject){
+      $("#tableTitle").html(sTitle);
+      var TheTable = $("#tableContainer").htmlson({data: oObject});
+
     }
 
     function SetStatus(oText){
@@ -125,10 +166,16 @@
     function Action_CreateTeam(){
       CreateNewTeam($("#txtNewTeamName").val().trim(), $("#txtNewTeamDesc").val().trim());
     }
+  
 
     function Select_Action_NewTeam(){
       UI_ShowActionSel = false;
       UI_ShowCreateTeam = true;
+      DrawScreen();
+    }
+    function Select_Action_ViewTeams(){
+      GetTeams(MyProject.Guid);
+      UI_ShowTable = true;
       DrawScreen();
     }
 
@@ -137,11 +184,18 @@
         $("#ProjectSelectorFilled").css("display", (UI_ShowProjectSel!=true) ? "block" : "none");
         $("#ActionSelectorSection").css("display", (UI_ShowActionSel==true) ? "block" : "none");
         $("#NewTeamForm").css("display", (UI_ShowCreateTeam==true) ? "block" : "none");
+        $("#tableViewer").css("display", (UI_ShowTable==true) ? "block" : "none");
     }
 
     function DisplayVariables(){
       $("#consoleVariable").html("<p><strong>MyProject</strong></p>");
-      $("#consoleVariable").append(`<pre class="font-monospace">${JSON.stringify(MyProject, null, 3)}</pre>` )
+      $("#consoleVariable").append(`<pre class="font-monospace">${JSON.stringify(MyProject, null, 3)}</pre>`);
+
+      $("#consoleVariable").append("<p><strong>MyUsers</strong></p>");
+      $("#consoleVariable").append(`<pre class="font-monospace">${JSON.stringify(MyUsers, null, 3)}</pre>`);
+
+      $("#consoleVariable").append("<p><strong>MyTeams</strong></p>");
+      $("#consoleVariable").append(`<pre class="font-monospace">${JSON.stringify(MyTeams, null, 3)}</pre>`);
     }
     function DisplayRequest(req){
       $("#consoleRequest").html(`<pre class="font-monospace">${JSON.stringify(req, null, 3)}</pre>`);
@@ -179,6 +233,7 @@
           </button>
           <ul class="dropdown-menu">
             <li><a class="dropdown-item" href="#" onclick="Select_Action_NewTeam()">Create a New Team</a></li>
+            <li><a class="dropdown-item" href="#" onclick="Select_Action_ViewTeams()">View Existing Teams</a></li>
           </ul>
         </div>
       </div>
@@ -193,18 +248,37 @@
                     <label for="txtNewTeamDesc" class="form-label">Description</label>
                     <input type="text" class="form-control" id="txtNewTeamDesc">
                 </div>
-       
             <div class="col-12">
                 <button type="button" class="btn btn-primary" onclick="Action_CreateTeam()">Create</button>
             </div>
-            
         </form>
         
 
+        <form id="EditTeamMembersForm" style="display:none;" class="row g-3">
+          <h3>Edit Team Members</h3>
+              <div class="col-md-4">
+                  <label for="txtNewTeamName" class="form-label">Team Name</label>
+                  <input type="text" class="form-control" id="txtNewTeamName">
+              </div>
+              <div class="col-md-8">
+                  <label for="txtNewTeamDesc" class="form-label">Description</label>
+                  <input type="text" class="form-control" id="txtNewTeamDesc">
+              </div>
+          <div class="col-12">
+              <button type="button" class="btn btn-primary" onclick="Action_CreateTeam()">Create</button>
+          </div>
+      </form>
+
+
+      <div id="tableViewer" style="display:none;">
+        <h3 id="tableTitle"></h3>
+        <table id="tableContainer" class="table table-striped"></table>
+      </div>
         
 
     <div id="status" class="alert alert-light">Status</div>
 
+    <button type="button" class="btn btn-link" onclick="DisplayVariables()">Update Variables</button>
 
     <div class="accordion" id="consoleContainer">
         <div class="accordion-item">
